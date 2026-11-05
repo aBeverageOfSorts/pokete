@@ -29,25 +29,36 @@ class Connector:
         conn_succ = False
         while not conn_succ:
             if not self.set_host_port(ctx):
+                com_service.disconnect()
                 return False
             if not self.ask_user_name(ctx):
                 continue
             conn_succ = self.establish_connection(ctx)
-        self.handshake(ctx)
-        return True
+        return self.handshake(ctx)
 
-    def handshake(self, ctx: Context):
-        try:
-            greeting_text = com_service.handshake(ctx, self.user_name, release.VERSION)
-            ask_ok(ctx, liner(greeting_text, ctx.map.width - 4))
-        except UserPresentException:
-            self.ask_user_name(ctx, True)
-            self.establish_connection(ctx)
-            self.handshake(ctx)
-        except VersionMismatchException as e:
-            ask_ok(ctx, f"Version mismatch: {e.version}")
-        except InvalidPokeException as e:
-            ask_ok(ctx, f"Invalid Poke: {e.msg}")
+    def handshake(self, ctx: Context) -> bool:
+        while True:
+            try:
+                greeting_text = com_service.handshake(
+                    ctx, self.user_name, release.VERSION
+                )
+                ask_ok(ctx, liner(greeting_text, ctx.map.width - 4))
+                return True
+            except UserPresentException:
+                com_service.disconnect()
+                if not self.ask_user_name(ctx, True):
+                    return False
+                if not self.establish_connection(ctx):
+                    com_service.disconnect()
+                    return False
+            except VersionMismatchException as e:
+                ask_ok(ctx, f"Version mismatch: {e.version}\nReturning to main menu.")
+                com_service.disconnect()
+                return False
+            except InvalidPokeException as e:
+                ask_ok(ctx, f"Invalid Poke: {e.msg}\nReturning to main menu.")
+                com_service.disconnect()
+                return False
 
     def set_host_port(self, ctx: Context) -> bool:
         """Asks the user for host and port to connect to"""
@@ -61,6 +72,7 @@ class Connector:
                 40,
             )
             if host is None:
+                com_service.disconnect()
                 return False
             try:
                 self.host_port = HostPort.parse(host)
@@ -85,6 +97,7 @@ class Connector:
             20,
         )
         if name is None:
+            com_service.disconnect()
             return False
         self.user_name = name
         return True
@@ -105,6 +118,7 @@ class Connector:
                 ctx,
                 f"An error occurred connecting to {self.host_port} :\n{excpt}",
             )
+            com_service.disconnect()
             return False
         return True
 
