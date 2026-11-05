@@ -26,6 +26,7 @@ from pokete.classes.multiplayer.pc_manager import pc_manager
 class CommunicationService:
     def __init__(self):
         self.client: bs_rpc.Client
+        self.con: socket.socket | None = None
         self.saved_pos = ()
         self.__positions_channel = bs_rpc.Channel[tuple[str, int, int]]()
 
@@ -84,16 +85,39 @@ class CommunicationService:
         try:
             con.connect((host, port))
         except Exception as e:
+            con.close()
             raise ConnectionException(e)
+
+        self.con = con
+        client = bs_rpc.Client(con, msg.get_registry())
+        self.client = client
 
         def listener():
             try:
-                self.client.listen(self)
+                client.listen(self)
+            except OSError:
+                if con is self.con:
+                    raise
             finally:
                 con.close()
+                if con is self.con:
+                    self.con = None
 
-        self.client = bs_rpc.Client(con, msg.get_registry())
         PropagatingThread(target=listener, daemon=True).start()
+
+    def disconnect(self):
+        con = self.con
+        if con is None:
+            return
+        self.con = None
+        try:
+            con.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            logging.debug(
+                "Socket was already shut down during disconnect", exc_info=True
+            )
+        finally:
+            con.close()
 
     def handshake(
         self, ctx: Context, user_name, version

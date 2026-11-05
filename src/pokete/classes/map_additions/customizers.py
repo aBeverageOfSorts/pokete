@@ -1,7 +1,7 @@
 import scrap_engine as se
 
 from pokete.classes.classes import PlayMap
-from pokete.classes.doors import ChanceDoor
+from pokete.classes.doors import ChanceDoor, Door
 from pokete.classes.landscape import HighGrass
 from .customizer import MapCustomizer
 
@@ -56,6 +56,14 @@ class Playmap5Customizer(MapCustomizer):
         )
         # adding
         _map.inner.add(_map, 26, 1)
+        _map.dor_playmap_4 = Door(
+            "O",
+            state="float",
+            arg_proto={"map": "playmap_4", "x": 56, "y": 2},
+        )
+        _map.dor_playmap_4.add(_map, 10, 10)
+        _map.exit_sign = se.Text("<- Exit", state="float")
+        _map.exit_sign.add(_map, 12, 10)
 
 
 class Playmap7Customizer(MapCustomizer):
